@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
+from dotenv import load_dotenv
 from fastapi import Cookie, Depends, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -9,7 +10,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-in-production")
+load_dotenv()
+
+SECRET_KEY = os.environ["SECRET_KEY"]
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 COOKIE_NAME = "access_token"
