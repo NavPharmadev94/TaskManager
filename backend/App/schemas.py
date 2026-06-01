@@ -1,5 +1,21 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+
+    model_config = {"from_attributes": True}
+
+
+# ── Tasks ─────────────────────────────────────────────────────────────────────
 
 class TaskCreate(BaseModel):
     title: str

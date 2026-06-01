@@ -1,24 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
-from models import Task
+from auth import get_current_user
+from database import get_db
+from models import Task, User
 from schemas import TaskCreate, TaskUpdate, TaskResponse
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 @router.post("", response_model=TaskResponse, status_code=201)
-def create_task(task: TaskCreate, db: Session = Depends(get_db)):
-    new_task = Task(title=task.title)
+def create_task(
+    task: TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    new_task = Task(title=task.title, user_id=current_user.id)
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
@@ -26,21 +23,33 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=list[TaskResponse])
-def get_tasks(db: Session = Depends(get_db)):
-    return db.query(Task).all()
+def get_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return db.query(Task).filter(Task.user_id == current_user.id).all()
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
-def get_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+def get_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.query(Task).filter(Task.id == task_id, Task.user_id == current_user.id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
-def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get_db)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+def update_task(
+    task_id: int,
+    task_update: TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.query(Task).filter(Task.id == task_id, Task.user_id == current_user.id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task_update.title is not None:
@@ -53,8 +62,12 @@ def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get
 
 
 @router.delete("/{task_id}", status_code=204)
-def delete_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.query(Task).filter(Task.id == task_id, Task.user_id == current_user.id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     db.delete(task)
