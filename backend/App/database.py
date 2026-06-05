@@ -7,11 +7,12 @@ from dotenv import load_dotenv
 # Walk up to backend/ so .env is found regardless of where uvicorn runs from
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tasks.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-connect_args = {"check_same_thread": False, "timeout": 15} if DATABASE_URL.startswith("sqlite") else {}
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set")
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
