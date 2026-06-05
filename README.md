@@ -7,7 +7,8 @@ A full-stack task management application with a FastAPI backend and Next.js fron
 **Backend**
 - FastAPI
 - SQLAlchemy (ORM)
-- SQLite (default) / configurable via `DATABASE_URL`
+- PostgreSQL (hosted on [Render](https://render.com))
+- `psycopg2-binary` — PostgreSQL driver
 - Uvicorn (ASGI server)
 - `python-jose` — JWT access + refresh token generation & validation
 - `bcrypt` — password hashing
@@ -83,12 +84,12 @@ App/
 
 4. Create a `.env` file in `backend/`:
    ```env
-   DATABASE_URL=sqlite:///./tasks.db
+   DATABASE_URL=postgresql://<user>:<password>@<host>/<dbname>
    SECRET_KEY=your-strong-random-secret-key
-   FRONTEND_ORIGIN=http://localhost:3001
+   FRONTEND_ORIGIN=http://localhost:3000
    COOKIE_SECURE=false
    ```
-   > **Important:** Set a strong random `SECRET_KEY` — never use the default in production.
+   > **Important:** Set `DATABASE_URL` to your Render PostgreSQL connection string. Set a strong random `SECRET_KEY` — never use the default in production.
 
 5. Start the server:
    ```powershell
@@ -118,10 +119,10 @@ App/
 
 4. Start the development server:
    ```bash
-   npm run dev -- -p 3001
+   npm run dev
    ```
 
-   App: `http://localhost:3001`
+   App: `http://localhost:3000`
 
 ## Authentication
 
@@ -213,17 +214,13 @@ username=user@example.com&password=yourpassword
 { "id": 1, "title": "Buy groceries", "completed": false }
 ```
 
-## Switching to a Real Database
+## Database
 
-Only one change needed — update `DATABASE_URL` in `backend/.env`:
+The app uses **PostgreSQL hosted on Render**. Set `DATABASE_URL` in `backend/.env` to your Render connection string:
 ```env
-DATABASE_URL=postgresql://user:password@localhost:5432/mydb
+DATABASE_URL=postgresql://<user>:<password>@<host>.oregon-postgres.render.com/<dbname>
 ```
-Then install the driver:
-```bash
-pip install psycopg2-binary
-```
-No code changes required — SQLAlchemy and the service layer handle the rest.
+The `psycopg2-binary` driver is included in `requirements.txt`. Tables are created automatically on startup via SQLAlchemy's `Base.metadata.create_all()`.
 
 ## Production Notes
 
