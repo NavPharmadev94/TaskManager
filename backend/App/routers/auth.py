@@ -2,12 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from security import ACCESS_TOKEN_EXPIRE_MINUTES, COOKIE_NAME, create_access_token
+from security import ACCESS_TOKEN_EXPIRE_MINUTES, COOKIE_NAME, create_access_token, get_current_user
 from database import get_db
+from models import User
 from schemas import UserCreate, UserResponse
 from services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.get("/me", response_model=UserResponse)
+def me(current_user: User = Depends(get_current_user)):
+    return current_user
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
@@ -37,7 +43,7 @@ def login(
         key=COOKIE_NAME,
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=False,
         samesite="lax",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
