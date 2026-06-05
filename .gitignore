@@ -5,3 +5,21 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.env
+
+# SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Next.js
+frontend/.env.local
+frontend/.next/
+frontend/node_modules/
