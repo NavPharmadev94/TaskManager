@@ -14,11 +14,12 @@ export default function LoginPage() {
 
   return (
     <AuthForm
-      heading="Sign in"
+      heading="Welcome back"
+      subheading="Sign in to manage your tasks"
       submitLabel="Sign in"
       onSubmit={handleLogin}
       footerText="Don't have an account?"
-      footerLinkLabel="Register"
+      footerLinkLabel="Create one"
       footerLinkHref="/register"
     />
   );
