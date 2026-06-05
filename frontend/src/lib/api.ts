@@ -11,6 +11,41 @@ export interface Task {
   completed: boolean;
 }
 
+// ── Error parsing ─────────────────────────────────────────────────────────────
+
+/** Parse FastAPI errors — detail can be a string or a Pydantic validation array. */
+function parseError(err: Record<string, unknown>, fallback: string): string {
+  if (!err.detail) return fallback;
+  if (typeof err.detail === "string") return err.detail;
+  if (Array.isArray(err.detail)) {
+    return err.detail
+      .map((e: unknown) => (e as { msg?: string }).msg ?? "")
+      .filter(Boolean)
+      .join(", ");
+  }
+  return fallback;
+}
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+async function attemptRefresh(): Promise<void> {
+  const res = await fetch(`${BASE}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Unauthorized");
+}
+
+/** Fetch wrapper that silently refreshes the access token once on 401. */
+async function fetchWithAuth(url: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(url, { ...init, credentials: "include" });
+  if (res.status !== 401) return res;
+  await attemptRefresh();
+  return fetch(url, { ...init, credentials: "include" });
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
 export async function register(email: string, password: string): Promise<User> {
   const res = await fetch(`${BASE}/auth/register`, {
     method: "POST",
@@ -20,7 +55,7 @@ export async function register(email: string, password: string): Promise<User> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Registration failed");
+    throw new Error(parseError(err, "Registration failed"));
   }
   return res.json();
 }
@@ -35,7 +70,7 @@ export async function login(email: string, password: string): Promise<User> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Login failed");
+    throw new Error(parseError(err, "Login failed"));
   }
   return res.json();
 }
@@ -48,28 +83,27 @@ export async function logout(): Promise<void> {
 }
 
 export async function getMe(): Promise<User> {
-  const res = await fetch(`${BASE}/auth/me`, { credentials: "include" });
+  const res = await fetchWithAuth(`${BASE}/auth/me`);
   if (!res.ok) throw new Error("Unauthorized");
   return res.json();
 }
 
 export async function getTasks(): Promise<Task[]> {
-  const res = await fetch(`${BASE}/tasks`, { credentials: "include" });
+  const res = await fetchWithAuth(`${BASE}/tasks`);
   if (res.status === 401) throw new Error("Unauthorized");
   if (!res.ok) throw new Error("Failed to fetch tasks");
   return res.json();
 }
 
 export async function createTask(title: string): Promise<Task> {
-  const res = await fetch(`${BASE}/tasks`, {
+  const res = await fetchWithAuth(`${BASE}/tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify({ title }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Failed to create task");
+    throw new Error(parseError(err, "Failed to create task"));
   }
   return res.json();
 }

@@ -14,8 +14,9 @@ export default function RegisterPage() {
 
   return (
     <AuthForm
-      heading="Create account"
-      submitLabel="Register"
+      heading="Create your account"
+      subheading="Start managing your tasks today"
+      submitLabel="Create account"
       onSubmit={handleRegister}
       footerText="Already have an account?"
       footerLinkLabel="Sign in"

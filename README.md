@@ -9,8 +9,9 @@ A full-stack task management application with a FastAPI backend and Next.js fron
 - SQLAlchemy (ORM)
 - SQLite (default) / configurable via `DATABASE_URL`
 - Uvicorn (ASGI server)
-- `python-jose` — JWT token generation & validation
+- `python-jose` — JWT access + refresh token generation & validation
 - `bcrypt` — password hashing
+- `slowapi` — rate limiting
 - `httpOnly` cookies — secure token storage
 
 **Frontend**
@@ -29,24 +30,25 @@ App/
 │   ├── .gitignore
 │   ├── venv/                     # virtual environment (not committed)
 │   └── App/
-│       ├── main.py               # FastAPI app, CORS middleware, lifespan
+│       ├── main.py               # FastAPI app, CORS, rate limit handler, lifespan
 │       ├── database.py           # DB engine, session, get_db
 │       ├── models.py             # User + Task SQLAlchemy models
-│       ├── schemas.py            # Pydantic request/response schemas
-│       ├── security.py           # JWT utils, bcrypt, get_current_user
+│       ├── schemas.py            # Pydantic schemas with field validation
+│       ├── security.py           # JWT utils, bcrypt, get_current_user, cookie config
+│       ├── limiter.py            # slowapi limiter instance
 │       ├── routers/
-│       │   ├── auth.py           # /auth/register, /login, /logout, /me
+│       │   ├── auth.py           # /auth/register, /login, /logout, /me, /refresh
 │       │   └── tasks.py          # /tasks CRUD (all protected)
 │       └── services/
 │           ├── auth_service.py   # user lookup, create, authenticate
 │           └── task_service.py   # task CRUD business logic
 └── frontend/
     ├── package.json
-    ├── .env.local                # NEXT_PUBLIC_API_URL
+    ├── .env.local                # NEXT_PUBLIC_API_URL (not committed)
     └── src/
         ├── middleware.ts         # edge auth guard (redirects)
         ├── lib/
-        │   └── api.ts            # typed fetch functions for all endpoints
+        │   └── api.ts            # typed fetch client with auto token refresh
         └── app/
             ├── layout.tsx
             ├── page.tsx          # redirects / → /login
@@ -84,6 +86,7 @@ App/
    DATABASE_URL=sqlite:///./tasks.db
    SECRET_KEY=your-strong-random-secret-key
    FRONTEND_ORIGIN=http://localhost:3001
+   COOKIE_SECURE=false
    ```
    > **Important:** Set a strong random `SECRET_KEY` — never use the default in production.
 
@@ -122,14 +125,24 @@ App/
 
 ## Authentication
 
-Authentication uses **JWT tokens stored in `httpOnly` cookies** — the token is never exposed to JavaScript, protecting against XSS attacks.
+Authentication uses **JWT tokens stored in `httpOnly` cookies** — tokens are never exposed to JavaScript, protecting against XSS attacks.
+
+### Token Strategy
+
+| Cookie | Expiry | Purpose |
+|---|---|---|
+| `access_token` | 30 minutes | Authorises API requests |
+| `refresh_token` | 7 days | Silently issues new access tokens |
+
+The frontend `fetchWithAuth()` wrapper automatically calls `POST /auth/refresh` when it receives a `401`, then retries the original request — users stay logged in transparently for up to 7 days without being interrupted.
 
 ### Flow
-1. `POST /auth/register` — create an account
-2. `POST /auth/login` — sets an httpOnly cookie with the JWT (30 min expiry)
-3. All subsequent requests automatically include the cookie via `credentials: "include"`
-4. `GET /auth/me` — returns the current user from the cookie (used to populate the dashboard)
-5. `POST /auth/logout` — clears the cookie
+1. `POST /auth/register` — create an account (password min 8 chars)
+2. `POST /auth/login` — sets both `access_token` and `refresh_token` httpOnly cookies
+3. All subsequent requests include cookies automatically via `credentials: "include"`
+4. On `401` — frontend silently refreshes the access token and retries
+5. `GET /auth/me` — returns the current user (used to populate the dashboard header)
+6. `POST /auth/logout` — clears both cookies
 
 ### Route Protection
 
@@ -138,19 +151,33 @@ Authentication uses **JWT tokens stored in `httpOnly` cookies** — the token is
 - Authenticated requests to `/login` or `/register` → redirected to `/dashboard`
 
 **Backend** — every `/tasks` endpoint uses `Depends(get_current_user)`:
-- Validates the JWT signature and expiry on every request
-- Returns `401 Unauthorized` if the cookie is missing, expired, or tampered
+- Validates JWT signature, expiry, and token type on every request
+- Returns `401 Unauthorized` if cookie is missing, expired, or tampered
+
+### Rate Limiting
+
+`POST /auth/login` is limited to **5 requests per minute per IP** via `slowapi`.
+Exceeding the limit returns `429 Too Many Requests`.
+
+## Input Validation
+
+| Field | Rule |
+|---|---|
+| `email` | Valid email format (Pydantic `EmailStr`) |
+| `password` | 8–128 characters |
+| `task title` | 1–200 characters (enforced backend + frontend `maxLength`) |
 
 ## API Endpoints
 
 ### Auth
 
-| Method | Endpoint         | Description                      | Auth required |
-|--------|------------------|----------------------------------|---------------|
-| POST   | `/auth/register` | Register a new user              | No            |
-| POST   | `/auth/login`    | Login, sets httpOnly cookie      | No            |
-| POST   | `/auth/logout`   | Logout, clears cookie            | No            |
-| GET    | `/auth/me`       | Returns current user from cookie | Yes           |
+| Method | Endpoint          | Description                        | Auth required | Rate limited |
+|--------|-------------------|------------------------------------|---------------|--------------|
+| POST   | `/auth/register`  | Register a new user                | No            | No           |
+| POST   | `/auth/login`     | Login, sets access + refresh cookie| No            | 5/min        |
+| POST   | `/auth/logout`    | Logout, clears both cookies        | No            | No           |
+| GET    | `/auth/me`        | Returns current user from cookie   | Yes           | No           |
+| POST   | `/auth/refresh`   | Issue new access token via refresh cookie | No     | No           |
 
 ### Tasks
 
@@ -201,7 +228,6 @@ No code changes required — SQLAlchemy and the service layer handle the rest.
 ## Production Notes
 
 - Set `SECRET_KEY` to a long random string: `openssl rand -hex 32`
-- Set `secure=True` on the cookie in `routers/auth.py` (requires HTTPS)
+- Set `COOKIE_SECURE=true` in `.env` (requires HTTPS)
 - Set `FRONTEND_ORIGIN` to your deployed frontend URL
 - Switch `DATABASE_URL` to PostgreSQL for production workloads
-- Add rate limiting on `/auth/login` to prevent brute force attacks
