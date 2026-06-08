@@ -16,6 +16,8 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 COOKIE_NAME = "access_token"
 REFRESH_COOKIE_NAME = "refresh_token"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+# cross-origin (prod) needs samesite=none; same-site (dev) uses lax
+COOKIE_SAMESITE = "none" if COOKIE_SECURE else "lax"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

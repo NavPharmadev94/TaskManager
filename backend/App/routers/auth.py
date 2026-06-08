@@ -7,6 +7,7 @@ from security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     ALGORITHM,
     COOKIE_NAME,
+    COOKIE_SAMESITE,
     COOKIE_SECURE,
     REFRESH_COOKIE_NAME,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -32,7 +33,7 @@ def _set_auth_cookies(response: Response, user_id: int) -> None:
         value=access_token,
         httponly=True,
         secure=COOKIE_SECURE,
-        samesite="lax",
+        samesite=COOKIE_SAMESITE,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     response.set_cookie(
@@ -40,7 +41,7 @@ def _set_auth_cookies(response: Response, user_id: int) -> None:
         value=refresh_token,
         httponly=True,
         secure=COOKIE_SECURE,
-        samesite="lax",
+        samesite=COOKIE_SAMESITE,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
@@ -110,6 +111,6 @@ def refresh(
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie(key=COOKIE_NAME)
-    response.delete_cookie(key=REFRESH_COOKIE_NAME)
+    response.delete_cookie(key=COOKIE_NAME, httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
     return {"message": "Logged out"}
