@@ -24,11 +24,13 @@ FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3001")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN],
+    allow_origins=[
+        "http://localhost:3001",  # local dev
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # allow ALL vercel domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 app.include_router(auth.router)
 app.include_router(tasks.router)
