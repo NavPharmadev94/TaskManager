@@ -251,6 +251,36 @@ DATABASE_URL=postgresql://<user>:<password>@<host>.oregon-postgres.render.com/<d
 ```
 The `psycopg2-binary` driver is included in `requirements.txt`. Tables are created automatically on startup via SQLAlchemy's `Base.metadata.create_all()`.
 
+### Inspecting the Database with DBeaver
+
+[DBeaver](https://dbeaver.io) is used to connect to the Render PostgreSQL database and inspect tables and data directly.
+
+**Setup:**
+1. Open DBeaver and create a new connection → select **PostgreSQL**
+2. Fill in the connection details from your Render dashboard (host, port `5432`, database name, username, password)
+3. Enable **SSL** (Render requires it) — set SSL mode to `require` under the SSL tab
+4. Click **Test Connection**, then **Finish**
+
+**Useful queries:**
+
+View all users:
+```sql
+SELECT * FROM users;
+```
+
+View all tasks:
+```sql
+SELECT * FROM tasks;
+```
+
+View tasks with their owner's email:
+```sql
+SELECT t.id, t.title, t.completed, u.email
+FROM tasks t
+JOIN users u ON t.user_id = u.id
+ORDER BY u.email, t.id;
+```
+
 ## Production Notes
 
 - Set `SECRET_KEY` to a long random string: `openssl rand -hex 32`
