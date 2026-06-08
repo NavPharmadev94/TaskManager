@@ -2,6 +2,14 @@
 
 A full-stack task management application with a FastAPI backend and Next.js frontend. Users register, log in, and manage their own private task lists.
 
+## Live Deployment
+
+| Layer | Platform | URL |
+|---|---|---|
+| **Frontend** | Vercel | https://task-manager-swart-five-38.vercel.app |
+| **Backend** | Render | https://taskmanager-18p8.onrender.com |
+| **Database** | Render PostgreSQL | — |
+
 ## Tech Stack
 
 **Backend**
@@ -84,7 +92,7 @@ App/
 
 4. Create a `.env` file in `backend/`:
    ```env
-   DATABASE_URL=postgresql://<user>:<password>@<host>/<dbname>
+   DATABASE_URL=postgresql://<user>:<password>@<host>.oregon-postgres.render.com/<dbname>
    SECRET_KEY=your-strong-random-secret-key
    FRONTEND_ORIGIN=http://localhost:3000
    COOKIE_SECURE=false
@@ -115,6 +123,7 @@ App/
 3. Create `.env.local` in `frontend/`:
    ```env
    NEXT_PUBLIC_API_URL=http://localhost:8000
+   # Production: https://taskmanager-18p8.onrender.com
    ```
 
 4. Start the development server:
@@ -226,6 +235,7 @@ The `psycopg2-binary` driver is included in `requirements.txt`. Tables are creat
 
 - Set `SECRET_KEY` to a long random string: `openssl rand -hex 32`
 - Set `COOKIE_SECURE=true` on Render (backend runs over HTTPS)
-- Set `FRONTEND_ORIGIN` to your Vercel deployment URL in Render's environment
+- Set `FRONTEND_ORIGIN=https://task-manager-swart-five-38.vercel.app` in Render's environment
+- Set `NEXT_PUBLIC_API_URL=https://taskmanager-18p8.onrender.com` in Vercel's environment variables
 - The Render PostgreSQL `DATABASE_URL` is set automatically if you link the database to the service
 - Cookies are set with `SameSite=None; Secure` to support cross-origin requests between Vercel and Render
