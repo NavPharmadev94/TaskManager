@@ -20,12 +20,13 @@ app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3001")
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3001",  # local dev
+        FRONTEND_ORIGIN,
+        "http://localhost:3000",  # local dev (Next.js default)
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",  # allow ALL vercel domains
     allow_credentials=True,

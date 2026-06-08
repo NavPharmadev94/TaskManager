@@ -107,3 +107,29 @@ export async function createTask(title: string): Promise<Task> {
   }
   return res.json();
 }
+
+export async function updateTask(
+  id: number,
+  data: { title?: string; completed?: boolean }
+): Promise<Task> {
+  const res = await fetchWithAuth(`${BASE}/tasks/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseError(err, "Failed to update task"));
+  }
+  return res.json();
+}
+
+export async function deleteTask(id: number): Promise<void> {
+  const res = await fetchWithAuth(`${BASE}/tasks/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 204) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseError(err, "Failed to delete task"));
+  }
+}

@@ -57,7 +57,7 @@ App/
     └── src/
         ├── middleware.ts         # passthrough (auth handled inside pages)
         ├── lib/
-        │   └── api.ts            # typed fetch client with auto token refresh
+        │   └── api.ts            # typed fetch client with auto token refresh (register, login, logout, getMe, getTasks, createTask, updateTask, deleteTask)
         └── app/
             ├── layout.tsx
             ├── page.tsx          # redirects / → /login
@@ -67,7 +67,7 @@ App/
             ├── register/
             │   └── page.tsx      # register form
             └── dashboard/
-                └── page.tsx      # task list + add task + logout
+                └── page.tsx      # task list + add/edit/delete/toggle task + logout
 ```
 
 ## Getting Started
@@ -133,6 +133,22 @@ App/
 
    App: `http://localhost:3000`
 
+## Dashboard Features
+
+The dashboard (`/dashboard`) provides full task management:
+
+| Feature | Description |
+|---|---|
+| **Add task** | Type a title and press Add — appears instantly at the top of the list |
+| **Toggle complete** | Click the checkbox to mark a task done/undone (calls `PUT /tasks/{id}`) |
+| **Inline edit** | Click ✏️ to edit the title in place; press Enter or Save to commit, Escape or Cancel to discard |
+| **Delete** | Click 🗑️ to permanently remove a task (calls `DELETE /tasks/{id}`) |
+| **Pending badge** | Header shows a count of incomplete tasks |
+
+Each action calls the backend immediately and updates the UI optimistically on success.
+
+---
+
 ## Authentication
 
 Authentication uses **JWT tokens stored in `httpOnly` cookies** — tokens are never exposed to JavaScript, protecting against XSS attacks.
@@ -159,6 +175,10 @@ The frontend `fetchWithAuth()` wrapper automatically calls `POST /auth/refresh` 
 **Frontend** — `src/middleware.ts` is a passthrough (no cookie checks at the edge — cross-origin cookies cannot be read there). Auth is enforced inside the page:
 - `dashboard/page.tsx` calls `GET /auth/me` on mount; if it fails the user is redirected to `/login`
 - This works correctly across domains (Vercel frontend → Render backend)
+
+### CORS
+
+The backend reads `FRONTEND_ORIGIN` from `.env` and uses it in `allow_origins`. The default is `http://localhost:3000` (Next.js dev port). In production this is set to the Vercel URL via Render's environment variables. All Vercel preview URLs are also allowed via `allow_origin_regex`.
 
 **Backend** — every `/tasks` endpoint uses `Depends(get_current_user)`:
 - Validates JWT signature, expiry, and token type on every request

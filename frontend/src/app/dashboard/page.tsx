@@ -9,10 +9,21 @@ import {
   Input,
   Stack,
   Text,
+  Checkbox,
+  IconButton,
 } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createTask, getMe, getTasks, logout, type Task, type User } from "@/lib/api";
+import {
+  createTask,
+  deleteTask,
+  getMe,
+  getTasks,
+  logout,
+  updateTask,
+  type Task,
+  type User,
+} from "@/lib/api";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -22,6 +33,16 @@ export default function DashboardPage() {
   const [addError, setAddError] = useState("");
   const [adding, setAdding] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Edit state
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editError, setEditError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Per-task loading states
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +74,58 @@ export default function DashboardPage() {
       setAddError(err instanceof Error ? err.message : "Failed to add task");
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function handleToggle(task: Task) {
+    setTogglingId(task.id);
+    try {
+      const updated = await updateTask(task.id, { completed: !task.completed });
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    } catch {
+      // silently ignore
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  function handleEditStart(task: Task) {
+    setEditingId(task.id);
+    setEditTitle(task.title);
+    setEditError("");
+  }
+
+  function handleEditCancel() {
+    setEditingId(null);
+    setEditTitle("");
+    setEditError("");
+  }
+
+  async function handleEditSave(taskId: number) {
+    const trimmed = editTitle.trim();
+    if (!trimmed) { setEditError("Title cannot be empty"); return; }
+    setSaving(true);
+    setEditError("");
+    try {
+      const updated = await updateTask(taskId, { title: trimmed });
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setEditingId(null);
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(taskId: number) {
+    setDeletingId(taskId);
+    try {
+      await deleteTask(taskId);
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    } catch {
+      // silently ignore
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -190,21 +263,96 @@ export default function DashboardPage() {
                     borderLeftColor={task.completed ? "gray.200" : "blue.400"}
                     transition="all 0.15s"
                   >
-                    <HStack justify="space-between">
-                      <Text
-                        fontSize="sm"
-                        fontWeight="medium"
-                        textDecoration={task.completed ? "line-through" : "none"}
-                        color={task.completed ? "gray.400" : "gray.800"}
-                      >
-                        {task.title}
-                      </Text>
-                      {task.completed && (
-                        <Badge colorPalette="green" variant="subtle" fontSize="xs">
-                          Done
-                        </Badge>
-                      )}
-                    </HStack>
+                    {editingId === task.id ? (
+                      /* ── Edit mode ── */
+                      <Stack gap={2}>
+                        <HStack gap={3}>
+                          <Input
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            size="sm"
+                            maxLength={200}
+                            flex={1}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleEditSave(task.id);
+                              if (e.key === "Escape") handleEditCancel();
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            colorPalette="blue"
+                            loading={saving}
+                            onClick={() => handleEditSave(task.id)}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleEditCancel}
+                            disabled={saving}
+                          >
+                            Cancel
+                          </Button>
+                        </HStack>
+                        {editError && (
+                          <Text color="red.500" fontSize="xs">{editError}</Text>
+                        )}
+                      </Stack>
+                    ) : (
+                      /* ── View mode ── */
+                      <HStack justify="space-between">
+                        <HStack gap={3} flex={1} minW={0}>
+                          <Checkbox.Root
+                            checked={task.completed}
+                            onCheckedChange={() => handleToggle(task)}
+                            disabled={togglingId === task.id}
+                            size="md"
+                          >
+                            <Checkbox.HiddenInput />
+                            <Checkbox.Control />
+                          </Checkbox.Root>
+                          <Text
+                            fontSize="sm"
+                            fontWeight="medium"
+                            textDecoration={task.completed ? "line-through" : "none"}
+                            color={task.completed ? "gray.400" : "gray.800"}
+                            truncate
+                          >
+                            {task.title}
+                          </Text>
+                          {task.completed && (
+                            <Badge colorPalette="green" variant="subtle" fontSize="xs" flexShrink={0}>
+                              Done
+                            </Badge>
+                          )}
+                        </HStack>
+                        <HStack gap={1} flexShrink={0}>
+                          <IconButton
+                            aria-label="Edit task"
+                            size="sm"
+                            variant="ghost"
+                            colorPalette="gray"
+                            onClick={() => handleEditStart(task)}
+                            title="Edit"
+                          >
+                            ✏️
+                          </IconButton>
+                          <IconButton
+                            aria-label="Delete task"
+                            size="sm"
+                            variant="ghost"
+                            colorPalette="red"
+                            loading={deletingId === task.id}
+                            onClick={() => handleDelete(task.id)}
+                            title="Delete"
+                          >
+                            🗑️
+                          </IconButton>
+                        </HStack>
+                      </HStack>
+                    )}
                   </Box>
                 ))}
               </Stack>
@@ -215,4 +363,5 @@ export default function DashboardPage() {
     </Box>
   );
 }
+
 
