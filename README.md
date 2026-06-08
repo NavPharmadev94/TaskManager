@@ -47,7 +47,7 @@ App/
     ├── package.json
     ├── .env.local                # NEXT_PUBLIC_API_URL (not committed)
     └── src/
-        ├── middleware.ts         # edge auth guard (redirects)
+        ├── middleware.ts         # passthrough (auth handled inside pages)
         ├── lib/
         │   └── api.ts            # typed fetch client with auto token refresh
         └── app/
@@ -147,9 +147,9 @@ The frontend `fetchWithAuth()` wrapper automatically calls `POST /auth/refresh` 
 
 ### Route Protection
 
-**Frontend** — `src/middleware.ts` runs on the Next.js edge before any page renders:
-- Unauthenticated requests to `/dashboard` → redirected to `/login`
-- Authenticated requests to `/login` or `/register` → redirected to `/dashboard`
+**Frontend** — `src/middleware.ts` is a passthrough (no cookie checks at the edge — cross-origin cookies cannot be read there). Auth is enforced inside the page:
+- `dashboard/page.tsx` calls `GET /auth/me` on mount; if it fails the user is redirected to `/login`
+- This works correctly across domains (Vercel frontend → Render backend)
 
 **Backend** — every `/tasks` endpoint uses `Depends(get_current_user)`:
 - Validates JWT signature, expiry, and token type on every request
@@ -225,6 +225,7 @@ The `psycopg2-binary` driver is included in `requirements.txt`. Tables are creat
 ## Production Notes
 
 - Set `SECRET_KEY` to a long random string: `openssl rand -hex 32`
-- Set `COOKIE_SECURE=true` in `.env` (requires HTTPS)
-- Set `FRONTEND_ORIGIN` to your deployed frontend URL
-- Switch `DATABASE_URL` to PostgreSQL for production workloads
+- Set `COOKIE_SECURE=true` on Render (backend runs over HTTPS)
+- Set `FRONTEND_ORIGIN` to your Vercel deployment URL in Render's environment
+- The Render PostgreSQL `DATABASE_URL` is set automatically if you link the database to the service
+- Cookies are set with `SameSite=None; Secure` to support cross-origin requests between Vercel and Render
